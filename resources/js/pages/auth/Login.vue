@@ -1,0 +1,98 @@
+<script setup lang="ts">
+import AuthenticatedSessionController from '@/actions/App/Http/Controllers/Auth/AuthenticatedSessionController';
+import InputError from '@/components/InputError.vue';
+import TextLink from '@/components/TextLink.vue';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import AuthBase from '@/layouts/AuthLayout.vue';
+import { register } from '@/routes';
+import { request } from '@/routes/password';
+import { Form, Head } from '@inertiajs/vue3';
+import { LoaderCircle } from 'lucide-vue-next';
+import SocialLogin from './SocialLogin.vue';
+
+defineProps<{
+    status?: string;
+    canResetPassword: boolean;
+}>();
+const login = (provider: string) => {
+    window.location.href = `/login/${provider}`;
+};
+</script>
+
+<template>
+    <AuthBase title="Đăng nhập" description="Đăng nhập để tiếp tục sử dụng dịch vụ">
+        <Head title="Log in" />
+
+        <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
+            {{ status }}
+        </div>
+
+        <Form
+            v-bind="AuthenticatedSessionController.store.form()"
+            :reset-on-success="['password']"
+            v-slot="{ errors, processing }"
+            class="flex flex-col gap-2 mb-0"
+        >
+            <div class="grid gap-6">
+                <div class="grid gap-2">
+                    <Label for="email">Email hoặc tên đăng nhập</Label>
+                    <Input
+                        id="email"
+                        type="email"
+                        name="email"
+                        required
+                        autofocus
+                        :tabindex="1"
+                        autocomplete="email"
+                        placeholder="email@example.com"
+                    />
+                    <InputError :message="errors.email" />
+                </div>
+
+                <div class="grid gap-2">
+                    <div class="flex items-center justify-between">
+                        <Label for="password">Mật khẩu</Label>
+                        <TextLink v-if="canResetPassword" :href="request()" class="text-sm" :tabindex="5"> Quên mật khẩu ? </TextLink>
+                    </div>
+                    <Input
+                        id="password"
+                        type="password"
+                        name="password"
+                        required
+                        :tabindex="2"
+                        autocomplete="current-password"
+                    />
+                    <InputError :message="errors.password" />
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <Label for="remember" class="flex items-center space-x-3">
+                        <Checkbox id="remember" name="remember" :tabindex="3" />
+                        <span>Ghi nhớ đăng nhập</span>
+                    </Label>
+                </div>
+
+                <Button type="submit" class="mt-4 w-full" :tabindex="4" :disabled="processing">
+                    <LoaderCircle v-if="processing" class="h-4 w-4 animate-spin" />
+                    Đăng nhập
+                </Button>
+            </div>
+
+            <div class="text-center my-1 text-sm text-muted-foreground">
+                Bạn chưa có tài khoản?
+                <TextLink :href="register()" :tabindex="5">Đăng ký</TextLink>
+                <div class="flex items-center mt-2">
+                    <div class="flex-grow border-t border-gray-300"></div>
+                    <span class="flex-shrink mx-4 text-gray-400">Hoặc</span>
+                    <div class="flex-grow border-t border-gray-300"></div>
+                </div>
+            </div>
+            
+        </Form>
+       <!-- Social Login -->
+         <SocialLogin />
+    </AuthBase>
+</template>
