@@ -1,5 +1,5 @@
-<script setup>
-import { ref } from 'vue';
+<script setup lang="ts">
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { dashboard, login, register } from '@/routes';
 import { Link } from '@inertiajs/vue3';
 import { useCart } from '@/composables/useCart';
@@ -19,6 +19,55 @@ const mobileMenuOpen = ref(false);
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value;
 };
+// Search suggest state
+const search = ref('');
+const showSuggest = ref(false);
+const suggestions = ref<Array<{ id: number; name: string; price: number }>>([]);
+
+function debounceFn<T extends (...args: any[]) => void>(fn: T, wait = 250) {
+  let t: any;
+  return (...args: Parameters<T>) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+const fetchSuggest = async (q: string) => {
+  if (!q.trim()) {
+    suggestions.value = [];
+    return;
+  }
+  try {
+    const url = `/search/suggest?q=${encodeURIComponent(q)}&limit=8`;
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return;
+    const data = await res.json();
+    suggestions.value = data;
+  } catch (e) {
+    // silent
+  }
+};
+
+const debouncedFetch = debounceFn((q: string) => fetchSuggest(q), 250);
+
+watch(search, (q) => {
+  showSuggest.value = !!q;
+  debouncedFetch(q);
+});
+
+const handleClickOutside = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  if (!target.closest?.('#search-box')) {
+    showSuggest.value = false;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 
 const { viewCart, isAuthenticated } = useCart();
 
@@ -40,8 +89,37 @@ const goToCart = () => {
         <a href="#" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Blog</a>
         <a href="#contact" class="text-gray-600 hover:text-pink-600 font-medium transition duration-200">Liên hệ</a>
       </nav>
-      <!-- Search Bar -->
-      <input type="text" placeholder="Tìm kiếm..." class="hidden md:block border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all duration-300">
+      <!-- Search Bar with Suggest -->
+      <div id="search-box" class="relative hidden md:block w-72">
+        <input
+          v-model="search"
+          type="text"
+          placeholder="Tìm kiếm sản phẩm..."
+          class="w-full border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all duration-300"
+          @focus="showSuggest = !!search"
+        />
+        <div
+          v-if="showSuggest && suggestions.length"
+          class="absolute mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+        >
+          <ul class="max-h-80 overflow-auto divide-y divide-gray-100">
+            <li
+              v-for="item in suggestions"
+              :key="item.id"
+              class="px-4 py-2 hover:bg-pink-50 cursor-pointer flex items-center justify-between"
+              @mousedown.prevent
+            >
+              <Link :href="`/products/${item.id}`" class="flex-1 pr-2 truncate">
+                {{ item.name }}
+              </Link>
+              <span class="text-pink-600 font-semibold whitespace-nowrap">
+                {{ new Intl.NumberFormat('vi-VN').format(item.price) }}₫
+              </span>
+            </li>
+            <li v-if="suggestions.length === 0" class="px-4 py-2 text-gray-500">Không có kết quả</li>
+          </ul>
+        </div>
+      </div>
 
     <div class="flex items-center gap-4">
       <Link
