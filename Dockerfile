@@ -1,28 +1,19 @@
-# Sử dụng image PHP 8.2 + FPM + Debian bullseye
-FROM php:8.2-fpm-bullseye
+FROM node:18-bullseye AS builder
 
 WORKDIR /var/www/html
 
-# Cài system deps cơ bản + Node 18 LTS
+# Cài PHP + extensions
 RUN apt-get update && apt-get install -y \
-        libpq-dev \
-        unzip \
-        git \
-        curl \
-        gnupg2 \
-        ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && docker-php-ext-install pdo_pgsql \
+        php8.2-cli php8.2-fpm php8.2-pgsql unzip git curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Cài Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy toàn bộ code
+# Copy code
 COPY . .
 
-# Tạo thư mục writable cho Laravel
+# Tạo writable dirs cho Laravel
 RUN mkdir -p storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
@@ -38,15 +29,17 @@ RUN npm ci \
     && npm prune --production \
     && rm -rf /root/.npm /root/.node-gyp
 
-# Copy Nginx config (nếu có)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Stage production
+FROM php:8.2-fpm-bullseye
 
-# Copy script deploy nếu có
+WORKDIR /var/www/html
+
+COPY --from=builder /var/www/html /var/www/html
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY 00-laravel-deploy.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/00-laravel-deploy.sh
 
-# Chỉ expose port Render dùng
 EXPOSE 8080
 
-# Start PHP-FPM
 CMD ["php-fpm"]
