@@ -5,9 +5,12 @@ WORKDIR /var/www/html
 COPY . .
 
 # Cài GPG keys và PostgreSQL driver
-RUN apt-get update && apt-get install -y gnupg2 wget \
-    && wget -qO - https://packages.sury.org/php/apt.gpg | apt-key add - \
-    && wget -qO - http://nginx.org/keys/nginx_signing.key | apt-key add - \
+RUN apt-get update && apt-get install -y gnupg2 wget ca-certificates \
+    && mkdir -p /etc/apt/keyrings \
+    && wget -qO /etc/apt/keyrings/sury-php.gpg https://packages.sury.org/php/apt.gpg \
+    && wget -qO /etc/apt/keyrings/nginx.gpg http://nginx.org/keys/nginx_signing.key \
+    && echo "deb [signed-by=/etc/apt/keyrings/sury-php.gpg] https://packages.sury.org/php bullseye main" > /etc/apt/sources.list.d/php.list \
+    && echo "deb [signed-by=/etc/apt/keyrings/nginx.gpg] http://nginx.org/packages/mainline/debian bullseye nginx" > /etc/apt/sources.list.d/nginx.list \
     && apt-get update && apt-get install -y libpq-dev \
     && docker-php-ext-install pdo_pgsql
 
