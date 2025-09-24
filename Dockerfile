@@ -1,36 +1,47 @@
-# Node 18 LTS + PHP 8.2-FPM base (simplified)
-FROM php:8.2-fpm-bullseye
+# Stage 1: Build PHP dependencies
+FROM composer:2.7 AS composer_build
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader
 
-WORKDIR /var/www/html
+# Stage 2: Build Node dependencies and assets
+FROM node:20 AS node_build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
-# PHP deps
-RUN apt-get update && apt-get install -y libpq-dev unzip git curl \
-    && docker-php-ext-install pdo_pgsql \
-    && rm -rf /var/lib/apt/lists/*
-
-# Node 18 LTS
-RUN curl -fsSL https://nodejs.org/dist/v18.20.1/node-v18.20.1-linux-x64.tar.xz \
-    | tar -xJ -C /usr/local --strip-components=1
-
-# Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Copy project
+# Stage 3: Final image to run the application
+FROM php:8.3-fpm-alpine
+WORKDIR /app
+COPY --from=composer_build /app/vendor /app/vendor
+COPY --from=node_build /app/public/build /app/public/build
+COPY --from=node_build /app/node_modules /app/node_modules
+COPY --from=node_build /app/dist /app/dist
 COPY . .
 
-# Writable dirs
-RUN mkdir -p storage bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+# Install PHP extensions and dependencies
+RUN apk add --no-cache \
+    nginx \
+    libzip-dev \
+    libpng-dev \
+    jpeg-dev \
+    postgresql-dev \
+    oniguruma-dev && \
+    docker-php-ext-configure gd --with-jpeg && \
+    docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql zip exif bcmath mbstring opcache && \
+    rm -rf /var/cache/apk/*
 
-# Install PHP deps
-USER www-data
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-USER root
+# Expose port 8000 for Nginx
+EXPOSE 8000
 
-# Node deps + build
-ENV NODE_OPTIONS=--openssl-legacy-provider
-RUN npm ci && npm run build && npm prune --production
+# Copy Nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
 
-EXPOSE 9000
-CMD ["php-fpm"]
+# Set permissions
+RUN chown -R www-data:www-data /app && \
+    chmod -R 775 /app/storage /app/bootstrap/cache
+
+# Define the start command
+CMD sh -c "php artisan migrate --force && nginx && php-fpm"
