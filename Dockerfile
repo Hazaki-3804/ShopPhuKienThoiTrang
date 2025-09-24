@@ -1,15 +1,15 @@
-# Stage 1: Build PHP dependencies
+# Stage 1: Build PHP dependencies and backend
 FROM composer:2.7 AS composer_build
 WORKDIR /app
-COPY composer.json composer.lock ./
+COPY . .
 RUN composer install --no-dev --optimize-autoloader
 
-# Stage 2: Build Node dependencies and assets
+# Stage 2: Build Node dependencies and frontend
 FROM node:20 AS node_build
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm install
 COPY . .
+COPY --from=composer_build /app/vendor /app/vendor
+RUN npm install
 RUN npm run build
 
 # Stage 3: Final image to run the application
@@ -37,7 +37,7 @@ RUN apk add --no-cache \
 EXPOSE 8000
 
 # Copy Nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY .docker/nginx.conf /etc/nginx/nginx.conf
 
 # Set permissions
 RUN chown -R www-data:www-data /app && \
