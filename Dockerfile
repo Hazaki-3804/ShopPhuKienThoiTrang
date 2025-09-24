@@ -37,7 +37,7 @@ RUN apk add --no-cache \
 EXPOSE 8000
 
 # Copy Nginx configuration
-COPY .docker/nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Set permissions
 RUN chown -R www-data:www-data /app && \
