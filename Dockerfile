@@ -1,13 +1,14 @@
-# Stage 1: Build PHP dependencies and backend
+# Stage 1: Build PHP dependencies
 FROM composer:2.7 AS composer_build
 WORKDIR /app
 COPY . .
 RUN composer install --no-dev --optimize-autoloader
 
-# Stage 2: Build Node dependencies and frontend
+# Stage 2: Build frontend assets
 FROM node:20 AS node_build
 WORKDIR /app
 COPY . .
+# Copy vendor folder from composer stage to enable `php artisan` during npm build
 COPY --from=composer_build /app/vendor /app/vendor
 RUN npm install
 RUN npm run build
@@ -15,13 +16,12 @@ RUN npm run build
 # Stage 3: Final image to run the application
 FROM php:8.3-fpm-alpine
 WORKDIR /app
-COPY --from=composer_build /app/vendor /app/vendor
-COPY --from=node_build /app/public/build /app/public/build
-COPY --from=node_build /app/node_modules /app/node_modules
-COPY --from=node_build /app/dist /app/dist
-COPY . .
 
-# Install PHP extensions and dependencies
+# Copy necessary files from build stages
+COPY --from=composer_build /app /app
+COPY --from=node_build /app/public/build /app/public/build
+
+# Install Nginx and required PHP extensions
 RUN apk add --no-cache \
     nginx \
     libzip-dev \
@@ -36,7 +36,7 @@ RUN apk add --no-cache \
 # Expose port 8000 for Nginx
 EXPOSE 8000
 
-# Copy Nginx configuration
+# Copy Nginx configuration file
 COPY nginx.conf /etc/nginx/nginx.conf
 
 # Set permissions
