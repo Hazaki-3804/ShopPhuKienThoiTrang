@@ -1,11 +1,22 @@
-FROM node:18-bullseye AS builder
+# Base PHP 8.2 + FPM
+FROM php:8.2-fpm-bullseye
 
 WORKDIR /var/www/html
 
-# Cài PHP + extensions
+# Cài system dependencies + PostgreSQL driver + unzip/git/curl
 RUN apt-get update && apt-get install -y \
-        php8.2-cli php8.2-fpm php8.2-pgsql unzip git curl \
+        libpq-dev \
+        unzip \
+        git \
+        curl \
+        gnupg2 \
+    && docker-php-ext-install pdo_pgsql \
     && rm -rf /var/lib/apt/lists/*
+
+# Cài Node 18 LTS (binary, tránh repo key issues)
+RUN curl -fsSL https://nodejs.org/dist/v18.20.1/node-v18.20.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1 \
+    && node -v \
+    && npm -v
 
 # Cài Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -29,13 +40,7 @@ RUN npm ci \
     && npm prune --production \
     && rm -rf /root/.npm /root/.node-gyp
 
-# Stage production
-FROM php:8.2-fpm-bullseye
-
-WORKDIR /var/www/html
-
-COPY --from=builder /var/www/html /var/www/html
-
+# Copy Nginx config (nếu có)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY 00-laravel-deploy.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/00-laravel-deploy.sh
