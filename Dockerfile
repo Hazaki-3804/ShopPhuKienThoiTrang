@@ -30,20 +30,24 @@ RUN docker-php-ext-install pdo_pgsql
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy all source code
+# Copy all source code first
 COPY . .
 
-# Switch to non-root user to run composer scripts
-RUN useradd -m builderuser
-USER builderuser
+# Create Laravel writable dirs
+RUN mkdir -p storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Switch to non-root user for Composer
+USER www-data
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Switch back to root for Node installation
+# Switch back to root to install Node deps
 USER root
 
-# Copy package.json first (cache layer)
+# Copy package.json & package-lock.json for caching
 COPY package*.json ./
 
 # Install Node deps including devDependencies
@@ -54,7 +58,7 @@ RUN npm run build \
     && npm prune --production \
     && rm -rf /root/.npm /root/.node-gyp
 
-# Set Laravel permissions
+# Ensure permissions for Laravel runtime
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
