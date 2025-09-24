@@ -5,14 +5,11 @@ FROM php:8.2-fpm-bullseye AS builder
 
 WORKDIR /var/www/html
 
-# Copy project source
-COPY . .
-
-# Remove problematic repos (Sury, Nginx mainline)
+# Remove problematic repos (Sury / Nginx)
 RUN rm -f /etc/apt/sources.list.d/sury*.list \
     && rm -f /etc/apt/sources.list.d/nginx*.list
 
-# Install system dependencies + Node.js 18
+# Install system dependencies + Node.js 18 LTS
 RUN apt-get update \
     && apt-get install -y \
         libpq-dev \
@@ -23,6 +20,8 @@ RUN apt-get update \
         git \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
+    && node -v \
+    && npm -v \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
@@ -31,12 +30,23 @@ RUN docker-php-ext-install pdo_pgsql
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
+# Copy composer files first (for caching)
+COPY composer.json composer.lock ./
+
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Build Vue + Vite assets (cài devDependencies để build)
-RUN npm ci \
-    && npm run build \
+# Copy package.json and package-lock.json (for npm caching)
+COPY package*.json ./
+
+# Install Node deps including devDependencies (Vite build)
+RUN npm ci
+
+# Copy all source files
+COPY . .
+
+# Build Vue + Vite assets
+RUN npm run build \
     && npm prune --production \
     && rm -rf /root/.npm /root/.node-gyp
 
