@@ -46,7 +46,7 @@ COPY --from=builder /app /app
 RUN apk add --no-cache nginx
 
 # Copy Nginx configuration file
-COPY .docker/nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Expose port for Nginx
 EXPOSE 8000
