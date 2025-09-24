@@ -22,6 +22,7 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('auth/Login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
+            'error' => $request->session()->get('error'),
         ]);
     }
 
@@ -40,7 +41,10 @@ class AuthenticatedSessionController extends Controller
 
             return to_route('two-factor.login');
         }
-
+        if ($user->status == 0) {
+            return redirect()->route('login')
+                ->with('error', 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
+        }
         Auth::login($user, $request->boolean('remember'));
 
         $request->session()->regenerate();

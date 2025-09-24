@@ -1,69 +1,67 @@
 <?php
 
-
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 /**
  * @method static \Laravel\Socialite\Contracts\Provider stateless()
  */
-
-use Laravel\Socialite\Facades\Socialite;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
-
 class SocialAuthController extends Controller
 {
-    // Route để lấy URL redirect đến Facebook
     public function redirectToProvider($provider)
     {
-        $url = Socialite::driver($provider)
-            ->stateless()
-            ->redirect()
-            ->getTargetUrl();
-
-        return response()->json(['url' => $url]);
+        return Socialite::driver($provider)->stateless()->redirect();
     }
-
-    // Callback sau khi user xác thực trên provider (Facebook hoặc Google)
     public function handleProviderCallback($provider)
     {
         try {
-            $user = Socialite::driver($provider)
-                ->stateless()
-                ->user();
+            $providerUser = Socialite::driver($provider)->stateless()->user();
+            $user = User::where('email', $providerUser->getEmail())->first();
 
-            // Tìm user tồn tại hoặc tạo mới
-            $existingUser = User::where('email', $user->getEmail())->first();
-            if ($existingUser) {
-                $existingUser->update([
-                    'name' => $user->getName(),
-                    'avatar' => $user->getAvatar(),
+            if ($user) {
+                // Cập nhật thông tin người dùng
+                $user->update([
+                    'name' => $providerUser->getName(),
+                    'avatar' => $providerUser->getAvatar(),
                 ]);
-                Auth::login($existingUser);
             } else {
-                $newUser = User::create([
-                    'name' => $user->getName(),
-                    'email' => $user->getEmail(),
-                    'password' => Hash::make('default_password'), // Hoặc không cần password
-                    // 'provider' => $provider,
-                    // 'provider_id' => $user->getId(),
-                    'avatar' => $user->getAvatar(),
+                // Tạo người dùng mới với role_id = 3
+                $user = User::create([
+                    'username' => $providerUser->getId(),
+                    'name' => $providerUser->getName(),
+                    'email' => $providerUser->getEmail(),
+                    'password' => Hash::make('default_password'),
+                    'avatar' => $providerUser->getAvatar(),
+                    'role_id' => 3,
+                    'status' => 1,
                 ]);
-                Auth::login($newUser);
             }
 
-            $token = auth()->user()->createToken('api')->plainTextToken; // Nếu dùng Sanctum
+            // Kiểm tra trạng thái tài khoản
+            if ($user->status == 0) {
+                return redirect()->route('login')
+                    ->with('error', 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
+            }
 
-            return view('auth.callback', [
-                'provider' => $provider,
-                'token' => $token
-            ]);
+            // Login người dùng
+            Auth::login($user);
+
+            // Redirect theo role
+            if (in_array($user->role_id, [1, 2])) {
+                return redirect()->intended(route('dashboard'));
+            } else { // role_id = 3
+                return redirect('/');
+            }
         } catch (\Exception $e) {
-            return response()->json(['error' => ucfirst($provider) . ' login failed: ' . $e->getMessage()], 500);
+            Log::error('Error while login with ' . $provider . ': ' . $e->getMessage());
+            return redirect()->route('login')->with('status', 'Đăng nhập thất bại. Vui lòng thử lại.');
         }
     }
 }

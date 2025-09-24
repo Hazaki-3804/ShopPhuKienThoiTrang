@@ -12,9 +12,10 @@ import { request } from '@/routes/password';
 import { Form, Head } from '@inertiajs/vue3';
 import { LoaderCircle } from 'lucide-vue-next';
 import SocialLogin from './SocialLogin.vue';
-
+import { Alert } from '@/components/ui/alert';
 defineProps<{
     status?: string;
+    error?: string;
     canResetPassword: boolean;
 }>();
 const login = (provider: string) => {
@@ -26,9 +27,20 @@ const login = (provider: string) => {
     <AuthBase title="Đăng nhập" description="Đăng nhập để tiếp tục sử dụng dịch vụ">
         <Head title="Log in" />
 
-        <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
+        <!-- <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
             {{ status }}
-        </div>
+        </div> -->
+        <Alert 
+            v-if="status" 
+            :message="status" 
+            type="success" 
+        />
+
+        <Alert 
+            v-if="error" 
+            :message="error" 
+            type="error" 
+        />
 
         <Form
             v-bind="AuthenticatedSessionController.store.form()"
@@ -41,15 +53,14 @@ const login = (provider: string) => {
                     <Label for="email">Email hoặc tên đăng nhập</Label>
                     <Input
                         id="email"
-                        type="email"
-                        name="email"
+                        type="text"
+                        name="login"
                         required
                         autofocus
                         :tabindex="1"
                         autocomplete="email"
-                        placeholder="email@example.com"
                     />
-                    <InputError :message="errors.email" />
+                    <InputError :message="errors.login" />
                 </div>
 
                 <div class="grid gap-2">

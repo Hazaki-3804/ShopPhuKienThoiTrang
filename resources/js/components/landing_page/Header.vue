@@ -45,7 +45,7 @@ const goToCart = () => {
 
     <div class="flex items-center gap-4">
       <Link
-        v-if="$page.props.auth?.user"
+        v-if="$page.props.auth?.user.role_id === 1 || $page.props.auth?.user.role_id === 2"
         :href="dashboard()"
         class="px-5 py-2 rounded-full bg-pink-600 text-black font-semibold shadow-lg hover:bg-pink-700 transition duration-300"
       >
