@@ -5,10 +5,10 @@ FROM php:8.2-fpm-bullseye AS builder
 
 WORKDIR /var/www/html
 
-# Copy source code
+# Copy project source
 COPY . .
 
-# Remove any problematic repos (Sury, Nginx mainline)
+# Remove problematic repos (Sury, Nginx mainline)
 RUN rm -f /etc/apt/sources.list.d/sury*.list \
     && rm -f /etc/apt/sources.list.d/nginx*.list
 
@@ -34,12 +34,13 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Build Vue assets
-RUN npm ci --only=production \
+# Build Vue + Vite assets (cài devDependencies để build)
+RUN npm ci \
     && npm run build \
+    && npm prune --production \
     && rm -rf /root/.npm /root/.node-gyp
 
-# Set permissions
+# Set Laravel permissions
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
@@ -53,7 +54,7 @@ WORKDIR /var/www/html
 # Copy built app from builder
 COPY --from=builder /var/www/html /var/www/html
 
-# Copy Nginx config if needed (Render can also manage Nginx)
+# Copy Nginx config if needed
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy deploy script
