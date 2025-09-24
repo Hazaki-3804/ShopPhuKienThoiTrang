@@ -10,14 +10,13 @@ RUN rm -f /etc/apt/sources.list.d/sury*.list \
     && rm -f /etc/apt/sources.list.d/nginx*.list
 
 # Install system dependencies + Node.js 18 LTS
-RUN apt-get update \
-    && apt-get install -y \
-        libpq-dev \
-        curl \
-        gnupg2 \
-        unzip \
-        ca-certificates \
-        git \
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    curl \
+    gnupg2 \
+    unzip \
+    ca-certificates \
+    git \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
     && node -v \
@@ -30,7 +29,7 @@ RUN docker-php-ext-install pdo_pgsql
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy all source code first
+# Copy all source code
 COPY . .
 
 # Create Laravel writable dirs
@@ -47,10 +46,10 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # Switch back to root to install Node deps
 USER root
 
-# Copy package.json & package-lock.json for caching
+# Copy package.json & package-lock.json (for npm caching)
 COPY package*.json ./
 
-# Install Node deps including devDependencies
+# Install Node deps including devDependencies (Vite/Tailwind require dev deps)
 RUN npm ci
 
 # Build Vue + Vite assets
@@ -58,7 +57,7 @@ RUN npm run build \
     && npm prune --production \
     && rm -rf /root/.npm /root/.node-gyp
 
-# Ensure permissions for Laravel runtime
+# Ensure Laravel permissions
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
