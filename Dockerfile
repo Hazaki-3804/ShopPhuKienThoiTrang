@@ -1,84 +1,51 @@
-# ===============================
-# Stage 1: Builder
-# ===============================
-FROM php:8.2-fpm-bullseye AS builder
-
-WORKDIR /var/www/html
-
-# Remove problematic repos
-RUN rm -f /etc/apt/sources.list.d/sury*.list \
-    && rm -f /etc/apt/sources.list.d/nginx*.list
-
-# Install system dependencies + Node.js 18 LTS
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    curl \
-    gnupg2 \
-    unzip \
-    ca-certificates \
-    git \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && node -v \
-    && npm -v \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install PHP extensions
-RUN docker-php-ext-install pdo_pgsql
-
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Copy all source code
-COPY . .
-
-# Create Laravel writable dirs
-RUN mkdir -p storage/logs bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
-
-# Switch to non-root user for Composer
-USER www-data
-
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Switch back to root to install Node deps
-USER root
-
-# Copy package.json & package-lock.json (for npm caching)
-COPY package*.json ./
-
-# Install Node deps including devDependencies (Vite/Tailwind require dev deps)
-RUN npm ci
-
-# Build Vue + Vite assets
-RUN npm run build \
-    && npm prune --production \
-    && rm -rf /root/.npm /root/.node-gyp
-
-# Ensure Laravel permissions
-RUN chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
-
-# ===============================
-# Stage 2: Production
-# ===============================
+# Sử dụng image PHP 8.2 + FPM + Debian bullseye
 FROM php:8.2-fpm-bullseye
 
 WORKDIR /var/www/html
 
-# Copy built app from builder
-COPY --from=builder /var/www/html /var/www/html
+# Cài system deps cơ bản + Node 18 LTS
+RUN apt-get update && apt-get install -y \
+        libpq-dev \
+        unzip \
+        git \
+        curl \
+        gnupg2 \
+        ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && docker-php-ext-install pdo_pgsql \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy Nginx config
+# Cài Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Copy toàn bộ code
+COPY . .
+
+# Tạo thư mục writable cho Laravel
+RUN mkdir -p storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Cài PHP dependencies
+USER www-data
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+USER root
+
+# Cài Node dependencies + build Vue/Vite
+RUN npm ci \
+    && npm run build \
+    && npm prune --production \
+    && rm -rf /root/.npm /root/.node-gyp
+
+# Copy Nginx config (nếu có)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy deploy script
+# Copy script deploy nếu có
 COPY 00-laravel-deploy.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/00-laravel-deploy.sh
 
-# Expose port for Render
+# Chỉ expose port Render dùng
 EXPOSE 8080
 
 # Start PHP-FPM
