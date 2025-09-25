@@ -1,37 +1,50 @@
-# Image PHP có sẵn
+# Stage 1: build frontend
+FROM node:20-alpine AS node-builder
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2: PHP + Laravel
 FROM php:8.2-fpm
 
-# Cài extension cần thiết
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpq-dev \
     unzip \
     git \
     curl \
-    nodejs \
-    npm \
-    && docker-php-ext-install zip pdo_pgsql pgsql
+    && docker-php-ext-install zip pdo_pgsql pgsql \
+    && rm -rf /var/lib/apt/lists/*
 
-# Cài Composer
+# Install composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Tạo thư mục làm việc
+# Set working directory
 WORKDIR /var/www
 
-# Copy toàn bộ mã nguồn
+# Copy Laravel app
 COPY . .
 
-# Cài dependency PHP
-RUN composer install --no-dev --optimize-autoloader 
+# Copy built frontend
+COPY --from=node-builder /app/dist ./public/build
 
-# Build frontend Vue bằng Vite
-RUN npm install && npm run build
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader
 
-# Laravel permission
+# Permissions
 RUN chmod -R 775 storage bootstrap/cache
 
-# EXPOSE PORT cho Render
-EXPOSE 8080
+# Clear & cache config
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
 
-# Lệnh chạy Laravel
-CMD php artisan serve --host=0.0.0.0 --port=8080
+# Expose port (PHP-FPM)
+EXPOSE 9000
+
+# Run PHP-FPM (production-ready)
+CMD ["php-fpm"]
