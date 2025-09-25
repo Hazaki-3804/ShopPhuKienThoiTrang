@@ -5,6 +5,40 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Chatbot\ChatbotController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\ProductController;
+use App\Models\Category;
+use App\Models\Product;
+
+Route::get('/home/categories', function () {
+    $categories = Category::query()
+        ->select(['id','name'])
+        ->orderBy('name')
+        ->limit(8)
+        ->get()
+        ->map(fn($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'image' => 'https://picsum.photos/600/600?category=' . $c->id,
+        ]);
+    return response()->json($categories);
+});
+
+Route::get('/home/products', function () {
+    $products = Product::query()
+        ->select(['id','name','price'])
+        ->orderByDesc('id')
+        ->limit(8)
+        ->get()
+        ->map(function ($p) {
+            $image = $p->product_images()->value('image_url');
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'price' => number_format($p->price, 0, ',', '.'),
+                'image' => $image ?: 'https://picsum.photos/600/600?random=' . $p->id,
+            ];
+        });
+    return response()->json($products);
+});
 
 
 /*

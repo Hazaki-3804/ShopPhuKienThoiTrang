@@ -3,7 +3,7 @@ import { usePage } from '@inertiajs/vue3';
 interface CategoryItem {
   id: number;
   name: string;
-  image: string;
+  image?: string | undefined;
 }
 
 const props = defineProps<{

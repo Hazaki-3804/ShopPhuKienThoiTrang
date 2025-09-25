@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /var/www
 
+# Copy composer binary từ composer image
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy composer files & install PHP deps
 COPY composer.* ./
 RUN composer install --no-dev --optimize-autoloader

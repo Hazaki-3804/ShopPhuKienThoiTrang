@@ -5,15 +5,22 @@ import ProductSection from '../components/landing_page/ProductSection.vue';
 import Newsletter from '../components/landing_page/Newsletter.vue';
 import ContactForm from '../components/landing_page/ContactForm.vue';
 import CategoryrSection from '../components/landing_page/CategorySection.vue';
-import { ref } from 'vue';
-import { usePage } from '@inertiajs/vue3';
-import type { AppPageProps } from '@/types';
+import { onMounted, ref } from 'vue';
 
-const page = usePage<AppPageProps<{ categories: Array<{ id:number; name:string; image:string|null }>; products: Array<{ id:number; name:string; price:string; image:string }> }>>();
-
-const categories = page.props.categories ?? [];
-const products = page.props.products ?? [];
+const categories = ref<Array<{ id:number; name:string; image:string }>>([]);
+const products = ref<Array<{ id:number; name:string; price:string; image:string }>>([]);
 const cartCount = ref(0);
+
+onMounted(async () => {
+  try {
+    const [cRes, pRes] = await Promise.all([
+      fetch('/api/home/categories', { credentials: 'same-origin' }),
+      fetch('/api/home/products', { credentials: 'same-origin' }),
+    ]);
+    if (cRes.ok) categories.value = await cRes.json();
+    if (pRes.ok) products.value = await pRes.json();
+  } catch (_) {}
+});
 </script>
 
 <template>
