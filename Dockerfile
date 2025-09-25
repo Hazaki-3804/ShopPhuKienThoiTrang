@@ -20,9 +20,14 @@ WORKDIR /var/www
 
 # Copy composer binary từ composer image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-# Copy composer files & install PHP deps
-COPY composer.* ./
+# Copy composer files first
+COPY composer.json composer.lock ./ 
+
+# Install dependencies
 RUN composer install --no-dev --optimize-autoloader
+
+# Copy toàn bộ source
+COPY . . 
 
 # Copy package.json & install Node deps
 COPY package*.json ./
