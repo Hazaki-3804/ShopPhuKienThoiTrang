@@ -6,21 +6,13 @@ import Newsletter from '../components/landing_page/Newsletter.vue';
 import ContactForm from '../components/landing_page/ContactForm.vue';
 import CategoryrSection from '../components/landing_page/CategorySection.vue';
 import { ref } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import type { AppPageProps } from '@/types';
 
-// Dữ liệu mock-up (có thể thay bằng API call)
-const categories = [
-  { id: 1, name: 'Nhẫn', image: 'https://picsum.photos/1200/600?random=5' },
-  { id: 2, name: 'Dây chuyền', image: 'https://picsum.photos/1200/600?random=6' },
-  { id: 3, name: 'Vòng tay', image: 'https://picsum.photos/1200/600?random=7' },
-  { id: 4, name: 'Khuyên tai', image: 'https://picsum.photos/1200/600?random=8' },
-];
+const page = usePage<AppPageProps<{ categories: Array<{ id:number; name:string; image:string|null }>; products: Array<{ id:number; name:string; price:string; image:string }> }>>();
 
-const products = [
-  { id: 1, name: 'Nhẫn vàng đơn giản', price: '₫499,000', image: 'https://picsum.photos/1200/600?random=9' },
-  { id: 2, name: 'Dây chuyền ngọc trai', price: '₫699,000', image: 'https://picsum.photos/1200/600?random=10' },
-  { id: 3, name: 'Vòng tay da unisex', price: '₫299,000', image: 'https://picsum.photos/1200/600?random=11' },
-  { id: 4, name: 'Khuyên tai bạc đính đá', price: '₫199,000', image: 'https://picsum.photos/1200/600?random=12' },
-];
+const categories = page.props.categories ?? [];
+const products = page.props.products ?? [];
 const cartCount = ref(0);
 </script>
 

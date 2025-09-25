@@ -2,12 +2,43 @@
 
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
+use App\Models\Category;
+use App\Models\Product;
 use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome');
+    $categories = Category::query()
+        ->select(['id','name'])
+        ->orderBy('name')
+        ->limit(8)
+        ->get()
+        ->map(fn($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'image' => 'https://picsum.photos/600/600?category=' . $c->id,
+        ]);
+
+    $products = Product::query()
+        ->select(['id','name','price'])
+        ->orderByDesc('id')
+        ->limit(8)
+        ->get()
+        ->map(function ($p) {
+            $image = $p->product_images()->value('image_url');
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'price' => number_format($p->price, 0, ',', '.'),
+                'image' => $image ?: 'https://picsum.photos/600/600?random=' . $p->id,
+            ];
+        });
+
+    return Inertia::render('Welcome', [
+        'categories' => $categories,
+        'products' => $products,
+    ]);
 })->name('home');
 
 // Search suggest
