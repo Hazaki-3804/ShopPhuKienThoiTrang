@@ -1,59 +1,37 @@
-# Stage 1: The builder stage (Build all dependencies)
-FROM php:8.3-fpm-alpine AS builder
+# Image PHP có sẵn
+FROM php:8.2-fpm
 
-# Install system dependencies
-RUN apk add --no-cache \
-    curl \
-    git \
+# Cài extension cần thiết
+RUN apt-get update && apt-get install -y \
     libzip-dev \
-    libpng-dev \
-    jpeg-dev \
-    postgresql-dev \
-    oniguruma-dev
+    libpq-dev \
+    unzip \
+    git \
+    curl \
+    nodejs \
+    npm \
+    && docker-php-ext-install zip pdo_pgsql pgsql
 
-# Install PHP extensions
-RUN docker-php-ext-configure gd --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd pdo pdo_pgsql zip exif bcmath mbstring opcache
+# Cài Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install Node.js
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | sh -
-RUN apk add --no-cache nodejs
+# Tạo thư mục làm việc
+WORKDIR /var/www
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Set the working directory
-WORKDIR /app
-
-# Copy all application files
+# Copy toàn bộ mã nguồn
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Cài dependency PHP
+RUN composer install --no-dev --optimize-autoloader 
 
-# Install Node.js dependencies and build assets
-RUN npm install
-RUN npm run build
+# Build frontend Vue bằng Vite
+RUN npm install && npm run build
 
-# Stage 2: The final production image
-FROM php:8.3-fpm-alpine
-WORKDIR /app
+# Laravel permission
+RUN chmod -R 775 storage bootstrap/cache
 
-# Copy the built application from the builder stage
-COPY --from=builder /app /app
+# EXPOSE PORT cho Render
+EXPOSE 8080
 
-# Install Nginx and other runtime dependencies
-RUN apk add --no-cache nginx
-
-# Copy Nginx configuration file
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Expose port for Nginx
-EXPOSE 8000
-
-# Set permissions
-RUN chown -R www-data:www-data /app \
-    && chmod -R 775 /app/storage /app/bootstrap/cache
-
-# Define the start command
-CMD sh -c "php artisan migrate --force && nginx && php-fpm"
+# Lệnh chạy Laravel
+CMD php artisan serve --host=0.0.0.0 --port=8080
