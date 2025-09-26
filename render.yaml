@@ -21,7 +21,7 @@ services:
         fromService:
           type: web
           name: shop-phu-kien-thoi-trang
-          property: host
+          property: url
       - key: APP_KEY
         generateValue: true  # Render will generate this
       - key: APP_LOCALE
@@ -62,16 +62,12 @@ services:
     
     # Start command is handled by Dockerfile CMD
 
-  # PostgreSQL Database
-  - type: postgres
-    name: shop-phu-kien-thoi-trang-db
-    databaseName: shop_phu_kien_thoi_trang_db
-    user: shop_phu_kien_thoi_trang_user
+databases:
+  - name: shop-phu-kien-thoi-trang-db
     plan: free  # Change to 'starter' or higher for production
     region: singapore
-    
-    # Database will be automatically linked to web service
-    ipAllowList: []  # Empty means allow all Render services
+    databaseName: shop_phu_kien_thoi_trang_db
+    user: shop_phu_kien_thoi_trang_user
 
 # Optional: Redis for caching and sessions
 # - type: redis
