@@ -1,9 +1,9 @@
 # =========================
-# Stage 1: Build PHP + Node (frontend + Wayfinder)
+# Stage 1: Build Dependencies
 # =========================
-FROM php:8.2-fpm AS build
+FROM php:8.2-apache AS build
 
-# Cài dependencies cho PHP + Node
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpq-dev \
@@ -16,59 +16,104 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /var/www
+WORKDIR /var/www/html
 
-# Copy composer binary từ composer image
+# Copy composer binary
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-# Copy composer files first
-COPY composer.json composer.lock ./ 
 
-# Install dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Copy composer files and install PHP dependencies
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-scripts
 
-# Copy toàn bộ source
-COPY . . 
-
-# Copy package.json & install Node deps
+# Copy package.json and install Node dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci --only=production
 
-# Copy full source code
+# Copy source code
 COPY . .
 
-# Generate Wayfinder types (PHP có sẵn ở đây)
+# Generate Wayfinder types
 RUN php artisan wayfinder:generate --with-form
 
-# Build frontend Vite
+# Build frontend assets
 RUN npm run build
 
-# Laravel permissions
-RUN chmod -R 775 storage bootstrap/cache
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html \
+    && chmod -R 775 storage bootstrap/cache
 
 # =========================
-# Stage 2: Production runtime (PHP-FPM only)
+# Stage 2: Production Runtime
 # =========================
-FROM php:8.2-fpm
+FROM php:8.2-apache
 
-WORKDIR /var/www
+# Install production dependencies
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    libpq-dev \
+    && docker-php-ext-install zip pdo_pgsql pgsql \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy PHP extensions + composer from build stage
-COPY --from=build /usr/local/lib/php/extensions /usr/local/lib/php/extensions
-COPY --from=build /usr/bin/composer /usr/bin/composer
+# Enable Apache modules
+RUN a2enmod rewrite headers
 
-# Copy Laravel source + built frontend
-COPY --from=build /var/www ./
+# Set working directory
+WORKDIR /var/www/html
 
-# Permissions
-RUN chmod -R 775 storage bootstrap/cache
+# Copy application from build stage
+COPY --from=build /var/www/html ./
 
-# Cache config & routes
-RUN php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+# Copy Apache configuration
+COPY <<EOF /etc/apache2/sites-available/000-default.conf
+<VirtualHost *:80>
+    DocumentRoot /var/www/html/public
+    
+    <Directory /var/www/html/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
 
-# Expose port PHP-FPM
-EXPOSE 9000
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html \
+    && chmod -R 775 storage bootstrap/cache
 
-# Start PHP-FPM
-CMD ["php-fpm"]
+# Cache Laravel configuration (will be overridden by environment variables)
+RUN php artisan config:cache || true \
+    && php artisan route:cache || true \
+    && php artisan view:cache || true
+
+# Create startup script
+COPY <<EOF /usr/local/bin/start.sh
+#!/bin/bash
+set -e
+
+# Wait for database if needed
+if [ ! -z "\$DATABASE_URL" ] || [ ! -z "\$DB_HOST" ]; then
+    echo "Waiting for database connection..."
+    php artisan migrate --force || echo "Migration failed, continuing..."
+fi
+
+# Clear and cache config with environment variables
+php artisan config:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Start Apache in foreground
+exec apache2-foreground
+EOF
+
+RUN chmod +x /usr/local/bin/start.sh
+
+# Expose port (Render will set PORT environment variable)
+EXPOSE 80
+
+# Start the application
+CMD ["/usr/local/bin/start.sh"]

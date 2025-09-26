@@ -1,0 +1,81 @@
+services:
+  - type: web
+    name: shop-phu-kien-thoi-trang
+    runtime: docker
+    plan: free  # Change to 'starter' or higher for production
+    region: singapore  # Choose closest region to Vietnam
+    
+    # Build settings
+    dockerfilePath: ./Dockerfile
+    dockerContext: ./
+    
+    # Environment variables
+    envVars:
+      - key: APP_NAME
+        value: "Shop Phụ Kiện Thời Trang"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        fromService:
+          type: web
+          name: shop-phu-kien-thoi-trang
+          property: host
+      - key: APP_KEY
+        generateValue: true  # Render will generate this
+      - key: APP_LOCALE
+        value: vi
+      - key: APP_FALLBACK_LOCALE
+        value: en
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: error
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shop-phu-kien-thoi-trang-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: FILESYSTEM_DISK
+        value: public
+      - key: MAIL_MAILER
+        value: log  # Change to smtp for production
+      - key: VITE_APP_NAME
+        value: "Shop Phụ Kiện Thời Trang"
+    
+    # Health check
+    healthCheckPath: /
+    
+    # Auto-deploy settings
+    autoDeploy: true
+    
+    # Build command (optional - Docker handles this)
+    # buildCommand: echo "Using Docker build"
+    
+    # Start command is handled by Dockerfile CMD
+
+  # PostgreSQL Database
+  - type: pgsql
+    name: shop-phu-kien-thoi-trang-db
+    databaseName: shop_phu_kien_thoi_trang_db
+    user: shop_phu_kien_thoi_trang_user
+    plan: free  # Change to 'starter' or higher for production
+    region: singapore
+    
+    # Database will be automatically linked to web service
+    ipAllowList: []  # Empty means allow all Render services
+
+# Optional: Redis for caching and sessions
+# - type: redis
+#   name: shop-phu-kien-redis
+#   plan: free
+#   region: singapore
+#   ipAllowList: []
