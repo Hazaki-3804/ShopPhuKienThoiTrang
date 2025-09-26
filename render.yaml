@@ -12,16 +12,13 @@ services:
     # Environment variables
     envVars:
       - key: APP_NAME
-        value: "Shop Phụ Kiện Thời Trang"
+        value: "Mochi Shop"
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
         value: false
       - key: APP_URL
-        fromService:
-          type: web
-          name: shop-phu-kien-thoi-trang
-          property: url
+        value: "https://mochi.onrender.com"
       - key: APP_KEY
         generateValue: true  # Render will generate this
       - key: APP_LOCALE
@@ -36,7 +33,7 @@ services:
         value: pgsql
       - key: DATABASE_URL
         fromDatabase:
-          name: shop-phu-kien-thoi-trang-db
+          name: shop-mochi-db
           property: connectionString
       - key: SESSION_DRIVER
         value: database
@@ -49,7 +46,7 @@ services:
       - key: MAIL_MAILER
         value: log  # Change to smtp for production
       - key: VITE_APP_NAME
-        value: "Shop Phụ Kiện Thời Trang"
+        value: "Mochi Shop"
     
     # Health check
     healthCheckPath: /
@@ -63,11 +60,11 @@ services:
     # Start command is handled by Dockerfile CMD
 
 databases:
-  - name: shop-phu-kien-thoi-trang-db
+  - name: shop-mochi-db
     plan: free  # Change to 'starter' or higher for production
     region: singapore
-    databaseName: shop_phu_kien_thoi_trang_db
-    user: shop_phu_kien_thoi_trang_user
+    databaseName: shop_mochi_db
+    user: shop_mochi_user
 
 # Optional: Redis for caching and sessions
 # - type: redis
