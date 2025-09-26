@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: shop-phu-kien-thoi-trang
+    name: mochi
     runtime: docker
     plan: free  # Change to 'starter' or higher for production
     region: singapore  # Choose closest region to Vietnam
