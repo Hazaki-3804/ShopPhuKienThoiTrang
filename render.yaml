@@ -63,7 +63,7 @@ services:
     # Start command is handled by Dockerfile CMD
 
   # PostgreSQL Database
-  - type: pgsql
+  - type: postgres
     name: shop-phu-kien-thoi-trang-db
     databaseName: shop_phu_kien_thoi_trang_db
     user: shop_phu_kien_thoi_trang_user
